@@ -40,6 +40,65 @@ Import:
 import "github.com/go-redis/redis/v7"
 ```
 
+## Quickstart (with encryption!)
+
+```go
+func ExampleNewClient() {
+	client := redis.NewEncryptingClient(&redis.EncryptingClientOptions{
+                    Options: &redis.Options{
+                        Addr:     "localhost:6379",
+                        Password: "", // no password set
+                        DB:       0,  // use default DB
+                    },
+                    PeacemakrApiKey:     "",
+                    PeacemakrClientName: "",
+                    PeacemakrUrl:        nil,
+                    PeacemakrPersister:  utils.GetInMemPersister(),
+                    PeacemakrLogger:     nil,
+                })
+
+	pong, err := client.Ping().Result()
+	fmt.Println(pong, err)
+	// Output: PONG <nil>
+}
+
+func ExampleClient() {
+	client := redis.NewEncryptingClient(&redis.EncryptingClientOptions{
+                    Options: &redis.Options{
+                        Addr:     "localhost:6379",
+                        Password: "", // no password set
+                        DB:       0,  // use default DB
+                    },
+                    PeacemakrApiKey:     "",
+                    PeacemakrClientName: "",
+                    PeacemakrUrl:        nil,
+                    PeacemakrPersister:  utils.GetInMemPersister(),
+                    PeacemakrLogger:     nil,
+                })
+	err := client.EncryptSet("key", "value", 0).Err()
+	if err != nil {
+		panic(err)
+	}
+
+	val, err := client.DecryptGet("key").Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("key", val)
+
+	val2, err := client.DecryptGet("key2").Result()
+	if err == redis.Nil {
+		fmt.Println("key2 does not exist")
+	} else if err != nil {
+		panic(err)
+	} else {
+		fmt.Println("key2", val2)
+	}
+	// Output: key value
+	// key2 does not exist
+}
+```
+
 ## Quickstart
 
 ``` go
