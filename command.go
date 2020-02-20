@@ -1,6 +1,7 @@
 package redis
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 	"strconv"
@@ -10,6 +11,8 @@ import (
 	"github.com/go-redis/redis/v7/internal"
 	"github.com/go-redis/redis/v7/internal/proto"
 	"github.com/go-redis/redis/v7/internal/util"
+
+	peacemakr_go_sdk "github.com/peacemakr-io/peacemakr-go-sdk/pkg"
 )
 
 type Cmder interface {
@@ -1877,6 +1880,109 @@ func (cmd *GeoPosCmd) readReply(rd *proto.Reader) error {
 		return nil, nil
 	})
 	return cmd.err
+}
+
+//------------------------------------------------------------------------------
+
+type EncryptedStringCmd struct {
+	baseCmd
+	StringCmd
+
+	p peacemakr_go_sdk.PeacemakrSDK
+}
+
+var _ Cmder = (*EncryptedStringCmd)(nil)
+
+func NewEncryptedStringCmd(p peacemakr_go_sdk.PeacemakrSDK, verb, key string, args ...interface{}) *EncryptedStringCmd {
+	if len(args) == 0 {
+		return &EncryptedStringCmd{
+			baseCmd: baseCmd{args: []interface{}{verb, key}},
+			p:       p,
+		}
+	}
+
+	return &EncryptedStringCmd{
+		baseCmd: baseCmd{args: []interface{}{verb, key, args}},
+		p:       p,
+	}
+}
+
+func (cmd *EncryptedStringCmd) readReply(rd *proto.Reader) error {
+	value, err := rd.ReadString()
+	if err != nil {
+		cmd.err = err
+		return err
+	}
+
+	byteVal, err := cmd.p.Decrypt(util.StringToBytes(value))
+	cmd.err = err
+	if err != nil {
+		return err
+	}
+	stringVal := util.BytesToString(byteVal)
+	// Strip off the length, the message is: <length>\r\n<msg>\r\n
+	s := strings.SplitN(stringVal, "\r\n", 2)
+	cmd.val = s[1]
+	return cmd.err
+}
+
+//------------------------------------------------------------------------------
+
+type EncryptedStatusCmd struct {
+	baseCmd
+	StatusCmd
+
+	p peacemakr_go_sdk.PeacemakrSDK
+}
+
+// New values go on the end
+func NewEncryptedStatusCmd(p peacemakr_go_sdk.PeacemakrSDK, verb, key string, expiration time.Duration, args ...interface{}) *EncryptedStatusCmd {
+	var arr []byte
+	buf := bytes.NewBuffer(arr)
+
+	// Have to serialize the args
+	wr := proto.NewWriter(buf)
+	for _, arg := range args {
+		err := wr.WriteArg(arg)
+		if err != nil {
+			return &EncryptedStatusCmd{
+				baseCmd: baseCmd{err: err},
+				p:       nil,
+			}
+		}
+	}
+	if err := wr.Flush(); err != nil {
+		return &EncryptedStatusCmd{
+			baseCmd: baseCmd{err: err},
+			p:       nil,
+		}
+	}
+
+	// Then we encrypt them
+	encrypted, err := p.Encrypt(buf.Bytes())
+	if err != nil {
+		return &EncryptedStatusCmd{
+			baseCmd: baseCmd{err: err},
+			p:       nil,
+		}
+	}
+
+	cmdArgs := make([]interface{}, 3, 5)
+	cmdArgs[0] = verb
+	cmdArgs[1] = key
+	cmdArgs[2] = encrypted
+	if expiration > 0 {
+		if usePrecise(expiration) {
+			cmdArgs = append(cmdArgs, "px", formatMs(expiration))
+		} else {
+			cmdArgs = append(cmdArgs, "ex", formatSec(expiration))
+		}
+	}
+
+	return &EncryptedStatusCmd{
+		baseCmd: baseCmd{args: cmdArgs},
+		p:       p,
+	}
 }
 
 //------------------------------------------------------------------------------

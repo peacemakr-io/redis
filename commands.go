@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v7/internal"
+
+	peacemakr_go_sdk "github.com/peacemakr-io/peacemakr-go-sdk/pkg"
 )
 
 func usePrecise(dur time.Duration) bool {
@@ -105,6 +107,8 @@ type Cmdable interface {
 	BitField(key string, args ...interface{}) *IntSliceCmd
 	Decr(key string) *IntCmd
 	DecrBy(key string, decrement int64) *IntCmd
+	DecryptGet(p peacemakr_go_sdk.PeacemakrSDK, key string) *EncryptedStringCmd
+	EncryptSet(p peacemakr_go_sdk.PeacemakrSDK, key string, value interface{}, expiration time.Duration) *EncryptedStatusCmd
 	Get(key string) *StringCmd
 	GetBit(key string, offset int64) *IntCmd
 	GetRange(key string, start, end int64) *StringCmd
@@ -748,6 +752,18 @@ func (c cmdable) Decr(key string) *IntCmd {
 
 func (c cmdable) DecrBy(key string, decrement int64) *IntCmd {
 	cmd := NewIntCmd("decrby", key, decrement)
+	_ = c(cmd)
+	return cmd
+}
+
+func (c cmdable) DecryptGet(p peacemakr_go_sdk.PeacemakrSDK, key string) *EncryptedStringCmd {
+	cmd := NewEncryptedStringCmd(p, "get", key)
+	_ = c(cmd)
+	return cmd
+}
+
+func (c cmdable) EncryptSet(p peacemakr_go_sdk.PeacemakrSDK, key string, value interface{}, expiration time.Duration) *EncryptedStatusCmd {
+	cmd := NewEncryptedStatusCmd(p, "set", key, expiration, value)
 	_ = c(cmd)
 	return cmd
 }

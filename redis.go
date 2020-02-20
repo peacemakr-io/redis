@@ -9,6 +9,9 @@ import (
 	"github.com/go-redis/redis/v7/internal"
 	"github.com/go-redis/redis/v7/internal/pool"
 	"github.com/go-redis/redis/v7/internal/proto"
+
+	peacemakr_go_sdk "github.com/peacemakr-io/peacemakr-go-sdk/pkg"
+	peacemakr_utils "github.com/peacemakr-io/peacemakr-go-sdk/pkg/utils"
 )
 
 // Nil reply returned by Redis when key does not exist.
@@ -687,6 +690,54 @@ func (c *Client) PSubscribe(channels ...string) *PubSub {
 		_ = pubsub.PSubscribe(channels...)
 	}
 	return pubsub
+}
+
+//------------------------------------------------------------------------------
+
+type EncryptingClient struct {
+	Client
+	p peacemakr_go_sdk.PeacemakrSDK
+}
+
+type EncryptingClientOptions struct {
+	Options             *Options
+	PeacemakrApiKey     string
+	PeacemakrClientName string
+	PeacemakrUrl        *string
+	PeacemakrPersister  peacemakr_utils.Persister
+	PeacemakrLogger     peacemakr_go_sdk.SDKLogger
+}
+
+// NewClient returns a client to the Redis Server specified by Options.
+func NewEncryptingClient(opt *EncryptingClientOptions) (*EncryptingClient, error) {
+	p, err := peacemakr_go_sdk.GetPeacemakrSDK(opt.PeacemakrApiKey, opt.PeacemakrClientName, opt.PeacemakrUrl, opt.PeacemakrPersister, opt.PeacemakrLogger)
+	if err != nil {
+		return nil, err
+	}
+	if err := p.Register(); err != nil {
+		return nil, err
+	}
+
+	opt.Options.init()
+
+	c := EncryptingClient{
+		Client: Client{
+			baseClient: newBaseClient(opt.Options, newConnPool(opt.Options)),
+			ctx:        context.Background(),
+		},
+		p: p,
+	}
+	c.cmdable = c.Process
+
+	return &c, nil
+}
+
+func (c *EncryptingClient) DecryptGet(key string) *EncryptedStringCmd {
+	return c.cmdable.DecryptGet(c.p, key)
+}
+
+func (c *EncryptingClient) EncryptSet(key string, value interface{}, expiration time.Duration) *EncryptedStatusCmd {
+	return c.cmdable.EncryptSet(c.p, key, value, expiration)
 }
 
 //------------------------------------------------------------------------------

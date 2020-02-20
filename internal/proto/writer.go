@@ -39,7 +39,7 @@ func (w *Writer) WriteArgs(args []interface{}) error {
 	}
 
 	for _, arg := range args {
-		err := w.writeArg(arg)
+		err := w.WriteArg(arg)
 		if err != nil {
 			return err
 		}
@@ -55,7 +55,7 @@ func (w *Writer) writeLen(n int) error {
 	return err
 }
 
-func (w *Writer) writeArg(v interface{}) error {
+func (w *Writer) WriteArg(v interface{}) error {
 	switch v := v.(type) {
 	case nil:
 		return w.string("")

@@ -3,6 +3,7 @@ package redis_test
 import (
 	"errors"
 	"fmt"
+	"github.com/peacemakr-io/peacemakr-go-sdk/pkg/utils"
 	"sync"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 )
 
 var rdb *redis.Client
+var enc *redis.EncryptingClient
 
 func init() {
 	rdb = redis.NewClient(&redis.Options{
@@ -19,6 +21,22 @@ func init() {
 		WriteTimeout: 30 * time.Second,
 		PoolSize:     10,
 		PoolTimeout:  30 * time.Second,
+	})
+
+	enc, _ = redis.NewEncryptingClient(&redis.EncryptingClientOptions{
+		Options: &redis.Options{
+			Addr:         ":6379",
+			DialTimeout:  10 * time.Second,
+			ReadTimeout:  30 * time.Second,
+			WriteTimeout: 30 * time.Second,
+			PoolSize:     10,
+			PoolTimeout:  30 * time.Second,
+		},
+		PeacemakrApiKey:     "",
+		PeacemakrClientName: "",
+		PeacemakrUrl:        nil,
+		PeacemakrPersister:  utils.GetInMemPersister(),
+		PeacemakrLogger:     nil,
 	})
 }
 
@@ -450,6 +468,20 @@ func Example_customCommand2() {
 	v, err := rdb.Do("get", "key_does_not_exist").Text()
 	fmt.Printf("%q %s", v, err)
 	// Output: "" redis: nil
+}
+
+func Example_encryptingGet() {
+	err := enc.EncryptSet("key", "super secret information", 10*time.Second).Err()
+	if err != nil {
+		panic(err)
+	}
+
+	val, err := enc.DecryptGet("key").Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("%s", val)
+	// Output: super secret information
 }
 
 func ExampleScanIterator() {
