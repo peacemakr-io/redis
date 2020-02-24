@@ -470,13 +470,27 @@ func Example_customCommand2() {
 	// Output: "" redis: nil
 }
 
-func Example_encryptingGet() {
+func Example_encryptGet() {
 	err := enc.EncryptSet("key", "super secret information", 10*time.Second).Err()
 	if err != nil {
 		panic(err)
 	}
 
-	val, err := enc.DecryptGet("key").Result()
+	val, err := enc.Get("key").Result()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("%s", val)
+	// Output: super secret information
+}
+
+func Example_noEncryptDecryptGet() {
+	err := enc.Set("key", "super secret information", 10*time.Second).Err()
+	if err != nil {
+		panic(err)
+	}
+
+	val, err := enc.Get("key").Result()
 	if err != nil {
 		panic(err)
 	}

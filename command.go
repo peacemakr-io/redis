@@ -1915,6 +1915,13 @@ func (cmd *EncryptedStringCmd) readReply(rd *proto.Reader) error {
 	}
 
 	byteVal, err := cmd.p.Decrypt(util.StringToBytes(value))
+	// Early exit if it's just not encrypted
+	if err != nil && err.Error() == "not a peacemakr ciphertext" {
+		cmd.val = value
+		cmd.err = nil
+		return nil
+	}
+
 	cmd.err = err
 	if err != nil {
 		return err

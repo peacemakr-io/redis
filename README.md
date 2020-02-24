@@ -80,13 +80,13 @@ func ExampleClient() {
 		panic(err)
 	}
 
-	val, err := client.DecryptGet("key").Result()
+	val, err := client.Get("key").Result()
 	if err != nil {
 		panic(err)
 	}
 	fmt.Println("key", val)
 
-	val2, err := client.DecryptGet("key2").Result()
+	val2, err := client.Get("key2").Result()
 	if err == redis.Nil {
 		fmt.Println("key2 does not exist")
 	} else if err != nil {

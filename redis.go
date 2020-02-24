@@ -732,7 +732,7 @@ func NewEncryptingClient(opt *EncryptingClientOptions) (*EncryptingClient, error
 	return &c, nil
 }
 
-func (c *EncryptingClient) DecryptGet(key string) *EncryptedStringCmd {
+func (c *EncryptingClient) Get(key string) *EncryptedStringCmd {
 	return c.cmdable.DecryptGet(c.p, key)
 }
 
